@@ -2,6 +2,8 @@ import { createRouter, createWebHashHistory, RouteRecordRaw } from 'vue-router'
 //import HomeView from '../views/HomeView.vue'
 import ClearanceView from '@/views/ClearanceView.vue'
 import T86infoView from '@/views/T86infoView.vue'
+import Login from '@/views/Login.vue'
+import { getCache } from '@/common/storage'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -20,9 +22,9 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import(/* webpackChunkName: "about" */ '../views/AboutView.vue')
   },
   {
-    path: '/index',
-    name: 'index',
-    component:() => import('../views/Layout.vue')
+    path:'/login',
+    name:'login',
+    component: Login,
   }
 ]
 
@@ -31,4 +33,12 @@ const router = createRouter({
   routes
 })
 
+router.beforeEach(( to : any, from : any, next : any ) =>{
+  const userInfo = getCache('userInfo')
+  if( userInfo || to.name === 'login'){
+    next()
+  }else{
+    next({name : 'login'})
+  }
+})
 export default router

@@ -1,5 +1,5 @@
 <template>
-    <a-layout-header class="layout-header" >
+    <div class="layout-header" >
         <div class="logo_content">
             <img class='logo' src="../assets/image/image.png" />
         </div>
@@ -20,23 +20,46 @@
         <div class="toolbar_layout">
             <div class="toolbar">
                 <div class="notice">
-                    <a-badge count="5">
-                        <BellOutlined />
+                    <a-badge count="5" :offset="[4, -2]" :number-style="{width: '20px', height: '20px'}">
+                        <BellOutlined style="color:#fff;width:18px;font-size:18px;" />
                     </a-badge>
                 </div>
-                <div class="management"></div>
-                <div class="language"></div>
-                <div class="user_info"></div>
+                <div class="management">
+                    <div class="management-icon"></div>
+                </div>
+                <div class="language">
+                    <div class="management-icon language-icon"></div>
+                </div>
+                <!-- <div class="user_info">
+                    <img style="width:24px;height:24px;border-radius:12px;margin-right:8px;" :src="userInfo.avatarUrl" />
+                    <span style="max-width:64px;font-size:14px;font-weight:400;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:22px;">{{ userInfo.name }}</span>
+                </div> -->
+                <a-dropdown :trigger="['click']" :overlay-style="{background:'#0F172A'}">
+                    <div class="user_info" @click.prevent>
+                        <img style="width:24px;height:24px;border-radius:12px;margin-right:8px;" :src="userInfo.avatarUrl" />
+                        <span style="max-width:64px;font-size:14px;font-weight:400;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:22px;">{{ userInfo.name }}</span>
+                    </div>
+                    <template #overlay>
+                        <div class="user-menu"><a-menu>
+                            <a-menu-item key="1">
+                            <a style="color:#fff;" href="javascript:void(0)" @click="logOut">Sign out</a>
+                            </a-menu-item>
+                        </a-menu></div>
+                    </template>
+                </a-dropdown>
             </div>
         </div>
         
-    </a-layout-header>
+    </div>
 </template>
 
 <script lang="ts">
 import { h, defineComponent, ref } from 'vue';
 import { BellOutlined, AppstoreOutlined} from '@ant-design/icons-vue';
 import { MenuProps } from 'ant-design-vue';
+import axios from 'axios';
+import { setCache, getCache } from '@/common/storage';
+import router from '@/router'
 export default defineComponent({
   name: 'TopBar',
   components:{
@@ -75,9 +98,49 @@ export default defineComponent({
         },
 
     ])
+    interface userInfo {
+        name: string,
+        avatarUrl: string,
+    }
+    const userInfo = ref<userInfo>({
+        name: '',
+        avatarUrl: '',
+    })
+    let userCacheInfo = getCache('userInfo')
+    if (userCacheInfo && userCacheInfo.name) {
+        userInfo.value.name = userCacheInfo.name
+    }
+    if(userCacheInfo && userCacheInfo.avatarUrl) {
+        userInfo.value.avatarUrl = userCacheInfo.avatarUrl
+    }
+    const logOut = async()=> {
+        console.log('logOut')
+        let config = {
+        method: 'post',
+        url: 'http://121.41.167.176:20001/auth/logout',
+        headers: { 
+            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)', 
+            'Accept': '*/*', 
+            'Host': '121.41.167.176:20001', 
+            'Connection': 'keep-alive'
+        }
+        };
+        // axios(config).then(function (response) {
+        //     console.log(JSON.stringify(response.data))
+        //     // 登出成功后需置空userInfo
+        //     setCache('userInfo', '')
+        //     router.push({path: '/login'})
+        // }).catch(function (error) {
+        //     console.log(error)
+        // })
+        setCache('userInfo', '')
+        router.push({path: '/login'})
+    }
     return {
         current: current,
         items: items,
+        userInfo,
+        logOut,
     }
     
   }
@@ -97,6 +160,7 @@ export default defineComponent({
     margin-left: 24px;
     width: 94px;
     height: 48px;
+    align-content: center;
 }
 .logo{
     /* top: 10px; */
@@ -134,19 +198,51 @@ export default defineComponent({
 }
 .notice{
     width: 48px;
-    background-color: aquamarine;
+    align-content: center;
+    text-align: center;
 }
 .management{
     width: 48px;
-    background-color: beige;
+    align-content: center;
+    text-align: center;
+}
+.management-icon {
+    margin: auto;
+    width: 24px;
+    height: 24px;
+    mask-image: url('../assets/image/expand.svg');
+    background-color: #fff;
+    mask-repeat: no-repeat;
+    -webkit-mask-repeat: no-repeat;
+    -moz-mask-repeat: no-repeat;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+    -moz-mask-size: contain;
+    mask-position: center;
+    -webkit-mask-position: center;
+    -moz-mask-position: center;
+}
+.language-icon {
+    width: 18px;
+    height: 18px;
+    mask-image: url('../assets/image/lang.svg');
 }
 .language{
     width: 42px;
-    background-color: blue;
+    align-content: center;
+    text-align: center;
 }
 .user_info{
     width: 113px;
-    background-color: bisque;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.user-menu ul {
+    background: #0F172A;
+}
+.user-menu li a {
+    color: #fff;
 }
  /* .ant-menu-horizontal > .ant-menu-item-selected {
     border-radius: 100px;

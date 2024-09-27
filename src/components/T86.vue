@@ -1,8 +1,18 @@
 <template>
+    <div class="search-equals" style="display: flex;align-items: center;margin-bottom: 16px;">
+
+        <!-- //search-input -->
+        <label style="vertical-align:middle;" >MBOL:</label>
+        <a-input-search 
+            v-model:value="bill_search" 
+            placeholder="Search" 
+            @search="searchMbolHanlde"  
+            style="vertical-align:middle;margin-left:20px;width:240px" />
+    </div>
     <a-table :dataSource="dataSource" :columns="columns_info" >
         <template #bodyCell="{ column, text }">
             <template v-if="column.key === 'actions'">
-                <template v-if="text.status === 'draft'">
+                <template v-if="text.status === 'Draft'">
                     <a @click="checkHtsHandle(text)">Check</a>
                     <a-divider type="vertical"></a-divider>
                     <a @click="sendHtsHandle(text)">Send</a>
@@ -13,103 +23,77 @@
             </template>
         </template>
     </a-table>
-
-    <a-drawer
-    v-model:open="drawerOpen"
-    :width="drawerWidth"
-    title="Review HTS Code"
-    >
-    <div class="statusLine" style="margin-top: 24px">
-        <a-checkbox-group :value="checkedHtsStatus" :options="checkStatusOption" />
-    </div>
-    </a-drawer>
     
 </template>
 <script lang="ts">
 
+import Api from '@/api/Api';
 import router from '@/router'
-import { defineComponent, nextTick, onMounted, reactive, ref, useTemplateRef } from 'vue'
+import { defineComponent, nextTick, onMounted, reactive, ref } from 'vue'
+
 
 export default defineComponent({
     name: 'T86',
    
     setup() {
-        
         const dataSource : any = ref([])
-        const drawerOpen = ref(false)
-        const drawerWidth = ref(1200)
+        const bill_search = ref('')
+        const searchMbolHanlde = () =>{
+            
+            if( bill_search.value === null){
+                return
+            }
 
-        
-        //const checkedHtsStatus = ref(['Apple'])
-        const checkedHtsStatus = reactive(['htswarning','descwarnings'])
-        //const checkStatusOption : any = ref(['Apple'])
-        const checkStatusOption = [
-            { label: 'Valid', value: 'valid' },
-            { label: 'HTS Warning', value: 'htswarning' },
-            { label: 'Shipment Description Warning', value: 'descwarnings' },
-        ]
-       
-        const statusInfo = ref({
-            valid: 200,
-            htsWarning: 50,
-            descWarning: 20,
-            invalid : 5
-        })
-
-        
-
-        const btnClick = () => {
-            const input = useTemplateRef('textRef')
-            console.log("test", input.value)
-
+            let params = {
+                masterBillNumber : bill_search.value
+            }
+            getT86Data(params)
+            
         }
 
         const checkHtsHandle = (item : any ) => {
-            //drawerOpen.value = true
-            console.log("click ====", item)
+            console.log("click ====", item)        
             router.push({
                 name: 't86info',
                 query: {
-                    mbol: item.mbol
+                    mainId: item.mainId
                 }
-                })
-        }
-        for( let i = 0; i< 10; i++){
-            dataSource.value.push({
-                index: i,
-                mbol: "test111d3",
-                pgasummary: "shipments with pga 250",
-                status: "draft",
-                respondTime: '2024-02-05 08:28:36',
-                submitTime: '2024-02-05 09:28:36',
-
             })
         }
+
+        const getT86Data = async( params : any = {})=> {
+            let response_data = await Api.getPending(params)
+            dataSource.value = []
+            for( let i = 0; i < response_data.rows.length; i++){
+                response_data.rows[i].index = i + 1
+                dataSource.value.push(response_data.rows[i])
+            }
+            console.log("datasource", dataSource.value)
+        }
+        
         onMounted(()=>{
             nextTick(()=>{
-                drawerWidth.value = window.innerWidth
-               
+                getT86Data()
             })
         })
 
         const columns_info = [
-            {title:'MBOL', dataIndex:'mbol', key:'mbol'},
-            {title:'PGA Summary', dataIndex:'pgasummary', key:'pgasummary'},
+            {title:'MBOL', dataIndex:'masterBillNumber', key:'masterBillNumber'},
+            {title: 'HBOL', dataIndex : 'totalHouseCount', key: 'totalHouseCount'},
+            {title: 'SKU Total', dataIndex: 'totalShipmentQuantity', key: 'totalShipmentQuantity'},
+            {title:'PGA Summary', dataIndex:'pgaSummary', key:'pgasummary'},
             {title:'Status', dataIndex:'status', key:'status'},
-            {title:'Respond Time', dataIndex:'respondTime', key:'respondTime'},
-            {title:'Submit Time', dataIndex:'submitTime', key:'submitTime'},
+            {title:'Respond Time', dataIndex:'createTime', key:'createTime'},
+            {title:'Submit Time', dataIndex:'updateTime', key:'updateTime'},
             {title:'Action',  key:'actions'},            
         ]
 
         return {
-            btnClick,
             columns_info,
             dataSource,
-            drawerOpen,
             checkHtsHandle,
-            drawerWidth,
-            checkedHtsStatus,
-            checkStatusOption,
+            searchMbolHanlde,
+            bill_search,
         }
     },
 })

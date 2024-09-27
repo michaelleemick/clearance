@@ -1,20 +1,21 @@
 <template>
     <div class="main_layout">
         <Topbar></Topbar>
-        <a-layout-content>
+        <div style="flex:1;background-color:#f5f5f5;padding: 24px 24px 40px 24px;">
             <div class="content-body">
                 <a-tabs v-model:activeKey="activeKey" class="tabs-a">
                     <a-tab-pane key="1" tab="Pending">
                         <div class="pending_content" style="margin-top:8px;">
-                            <div class="search-equals" style="display: flex;align-items: center;margin-left: 24px;">
+                            <div class="search-equals" style="display: flex;align-items: center;margin-bottom: 16px;">
 
                                 <!-- //search-input -->
                                 <label style="vertical-align:middle;" >MBOL:</label>
-                                <a-input v-model:value="bill_search" placeholder="Seacrch" style="vertical-align:middle;margin-left:20px;width:240px">
-                                    <template #suffix>
-                                        <SearchOutlined />
-                                    </template>
-                                </a-input>
+                                <a-input-search 
+                                    v-model:value="bill_search" 
+                                    placeholder="Search" 
+                                    @search="searchMbolHanlde"  
+                                    style="vertical-align:middle;margin-left:20px;width:240px" />
+                                
 
                                 <label style="margin-left: 24px;vertical-align:middle;">OriginCarries:</label>
 
@@ -37,7 +38,7 @@
                                     }
                                 }">
                                 <a-table :dataSource="mbols_data" :columns="columns_info" >
-                                    <template #bodyCell="{ column, text }">
+                                    <template #bodyCell="{ column, text}">
                                         <template v-if="column.key === 'actions'">
                                             <span>
 
@@ -69,14 +70,10 @@
                                                 <!-- <a @click="rejectHandle(text)">Reject</a> -->
                                             </span>
                                         </template>
-                                        <!-- <template v-else-if="column.key === 'carrier'"> -->
-                                            <!-- <a-select v-if="text.carrier == null">
-                                                <a-select-option>ZIMU</a-select-option>
-                                            </a-select> -->
-
-                                            <!-- <a-select v-else-if="text.carrier != null" value="hdt" disabled>
-                                            </a-select> -->
-                                        <!-- </template> -->
+                                        <template v-else-if="column.key === 'firstLogisticsProviderName'">
+                                            
+                                            
+                                        </template>
                                     </template>
                                 </a-table>
                             </a-config-provider>
@@ -84,34 +81,23 @@
                         </div>
                     </a-tab-pane>
 
-                    <a-tab-pane key="2">
-                        <template #tab>
-                            <span>
-                                T86
-                                <a-badge 
-                                v-model:count="pending_count"
-                                :number-Style="{
-                                    color: '#1890FF',
-                                    backgroundColor: '#E6F7FF'
-                                }"
-                                />
-                            </span>    
-                        </template>
+                    <a-tab-pane key="2" tab="T86">
                         <T86></T86>
                     </a-tab-pane>
                     <a-tab-pane key="3" tab="Reject" disabled>Reject</a-tab-pane>
                 </a-tabs>
             </div>
-        </a-layout-content>
+        </div>
     </div>
   </template>
   
   <script lang="ts">
-  import { defineComponent, onMounted, ref, nextTick, watch } from 'vue'
+  import { defineComponent, onMounted, reactive, ref, nextTick, watch } from 'vue'
   import { SearchOutlined,DownOutlined } from '@ant-design/icons-vue'
   import axios from 'axios'
   import Topbar from '@/components/TopBar.vue'
   import T86 from '@/components/T86.vue'
+  import Api from '@/api/Api'
 
   export default defineComponent({
     name: 'ClearanceView',
@@ -135,17 +121,10 @@
 
         const mbols_data: any = ref([])
 
-        watch(mbols_data, (new_data, old_data) =>{
-            console.log("teststst", new_data, old_data)
-        })
-
-        const fetchBills = async() =>{
+        const fetchBills = async(params: any = {}) =>{
             try {
-                let response
-                response = await axios.get("http://121.41.167.176:20001/t86/normal/master/pagination?eqStatus=Draft&pageSize=10&pageNum=1&time="+ Date.now())
-                
-                console.log("http back:", response)
-                const response_data = response.data
+            
+                const response_data = await Api.getPending(params)
                 let carrier_data : string[] = [];
                 mbols_data.value  = [];
 
@@ -160,6 +139,9 @@
                     response_data.rows[key].sku_total = response_data.rows[key].totalShipmentQuantity
                     response_data.rows[key].carrier = response_data.rows[key].carrierCode
                     response_data.rows[key].ior = response_data.rows[key].clientName
+                    if( response_data.rows[key].ior ==='拼多多'){
+                        response_data.rows[key].ior = 'Temu'
+                    }
                     response_data.rows[key].source = response_data.rows[key].creatorName
                     response_data.rows[key].creator = response_data.rows[key].creatorName
                     response_data.rows[key].createdAt = response_data.rows[key].createTime
@@ -197,7 +179,7 @@
             {title:'Type', dataIndex:'type', key:'type'},
             {title:'HBOL', dataIndex:'hbol', key:'hbol'},
             {title:'SKU Total', dataIndex:'sku_total', key:'sku_total'},
-            {title:'Origin Carrier', dataIndex:'carrier', key:'carrier'},
+            {title:'Origin Carrier', dataIndex:'firstLogisticsProviderName', key:'firstLogisticsProviderName'},
             {title:'IOR', dataIndex:'ior', key:'ior'},
             {title:'Source', dataIndex:'source', key:'source'},
             {title:'Creator', dataIndex:'creator', key:'creator'},
@@ -213,6 +195,19 @@
             })
             
         }
+
+        const searchMbolHanlde = () =>{
+            
+            if( bill_search.value === null){
+                return
+            }
+
+            let params = {
+                masterBillNumber : bill_search.value
+            }
+            fetchBills(params)
+        }
+
         return {
             activeKey,
             pending_count,
@@ -224,6 +219,7 @@
             approveVisible,
             rejectRef,
             rejectHandle,
+            searchMbolHanlde,
         }
         
     },
@@ -236,7 +232,11 @@
             this.carriesName = value
         },
         async approveHandle(item: any) {
-            console.log("approve ", item)
+            console.log("approve ", item, item.firstLogisticsProviderName)
+            return
+            if( item.firstLogisticsProviderName === "null"){
+
+            }
             let url : string = "http://121.41.167.176:20001/t86/normal/" + item.mainId + "/approval_pass"
             try{
                 let response = await(axios.put(url))
@@ -253,8 +253,11 @@
 
 .main_layout{
     width: 100%;
-    height: 100%;
+    height: 100vh;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    background: #F5F5F5;
 }
 .tabs-a .ant-tabs-tab{
     margin-left: 12px;
@@ -262,10 +265,9 @@
     padding: 0, 12px, 0,12px;
 }
 .content-body {
-    margin-left: 24px;
-    margin-right: 24px;
-    margin-top: 24px;
-    background-color: #FFFFFF;
+    height: 100%;
+    background: #fff;
+    padding: 0 24px;
 }
 .earch-equals{
     display: flex;
