@@ -1,5 +1,12 @@
 <template>
+  <a-config-provider 
+    :theme ="{
+       token:{
+         colorPrimary:'#000000'
+        }
+      }">
   <router-view/>
+  </a-config-provider>
 </template>
 
 <style lang="less">
@@ -8,5 +15,8 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #2c3e50;
+}
+body{
+  margin: 0px;
 }
 </style>

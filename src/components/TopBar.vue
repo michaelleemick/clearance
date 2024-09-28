@@ -5,17 +5,6 @@
         </div>
         <div class="menus">
             <a-menu class='top-bar-menu' v-model:selectedKeys="current" :items="items" mode="horizontal" theme="dark" @onClick="topbar_change"></a-menu>
-            <!-- <a-menu v-model:selectedKeys="current" mode="horizontal" style="gap:12px;" theme="dark" class="top-menu">
-                <a-menu-item key="Dashboard" class="top-menu-item">
-                    <BellOutlined /><span>Dashboard</span>
-                </a-menu-item>
-                <a-menu-item key="Clearance" class="top-menu-item">
-                    <BellOutlined />Clearance
-                </a-menu-item>
-                <a-menu-item class="top-menu-item">
-                    <BellOutlined />Lifecycle
-                </a-menu-item>
-            </a-menu> -->
         </div>
         <div class="toolbar_layout">
             <div class="toolbar">
@@ -107,34 +96,36 @@ export default defineComponent({
         avatarUrl: '',
     })
     let userCacheInfo = getCache('userInfo')
-    if (userCacheInfo && userCacheInfo.name) {
-        userInfo.value.name = userCacheInfo.name
+    if (userCacheInfo && userCacheInfo.userName) {
+        userInfo.value.name = userCacheInfo.userName
     }
-    if(userCacheInfo && userCacheInfo.avatarUrl) {
-        userInfo.value.avatarUrl = userCacheInfo.avatarUrl
+    if(userCacheInfo ) {
+        //userInfo.value.avatarUrl = userCacheInfo.avatarUrl
+        userInfo.value.avatarUrl = "https://gd-hbimg.huaban.com/dc4b46d78ad5d8f1657dc3b3dd28d7bec4a9b6c418bc9-TFXE1F_fw658webp"
     }
     const logOut = async()=> {
         console.log('logOut')
         let config = {
         method: 'post',
-        url: 'http://121.41.167.176:20001/auth/logout',
+        url: '/api/auth/logout',
         headers: { 
-            'User-Agent': 'Apifox/1.0.0 (https://apifox.com)', 
+            
             'Accept': '*/*', 
-            'Host': '121.41.167.176:20001', 
-            'Connection': 'keep-alive'
+            'Authorization' : 'Bearer ' + getCache('jwt'),
+            'clientid' : userCacheInfo.clientid
         }
         };
-        // axios(config).then(function (response) {
-        //     console.log(JSON.stringify(response.data))
-        //     // 登出成功后需置空userInfo
-        //     setCache('userInfo', '')
-        //     router.push({path: '/login'})
-        // }).catch(function (error) {
-        //     console.log(error)
-        // })
-        setCache('userInfo', '')
-        router.push({path: '/login'})
+        axios(config).then(function (response) {
+            console.log(JSON.stringify(response.data))
+            // 登出成功后需置空userInfo
+            setCache('userInfo', '')
+            setCache('jwt', '')
+            router.push({path: '/login'})
+        }).catch(function (error) {
+            console.log(error)
+        })
+        // setCache('userInfo', '')
+        // router.push({path: '/login'})
     }
     return {
         current: current,
@@ -181,6 +172,8 @@ export default defineComponent({
     border-radius: 100px;
     line-height: 28px;
     padding-top: 0px;
+    background: #1677ff;
+    
 }
 .top-bar-menu /deep/ .ant-menu-item{
     line-height: 28px;

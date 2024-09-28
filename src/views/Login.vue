@@ -64,6 +64,9 @@ import axios from 'axios';
 import { defineComponent,reactive, computed } from 'vue'
 import { UserOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons-vue'
 import { setCache } from '@/common/storage'
+import { decryptWithAes } from '@/common/aes'
+import { decodeJWT2Obj } from '@/common/jwt'
+
 import router from '@/router'
 
 export default defineComponent({
@@ -83,36 +86,54 @@ export default defineComponent({
             password: '',
         })
         const onFinish = async(values: any) => {
-            let data = JSON.stringify({
+            // let data : string = JSON.stringify({
+            //     "clientId": "e5cd7e4891bf95d1d19206ce24a7b32e",
+            //     "grantType": "password",
+            //     "tenantId": "000000",
+            //     "username": formState.username,
+            //     "password": formState.password,
+            // })
+
+            let data  = {
                 "clientId": "e5cd7e4891bf95d1d19206ce24a7b32e",
                 "grantType": "password",
+                "tenantId": "000000",
                 "username": formState.username,
                 "password": formState.password,
-            })
-            let config = {
-                method: 'post',
-                url: 'http://121.41.167.176:20001/auth/login',
-                headers: { 
-                    'User-Agent': 'Apifox/1.0.0 (https://apifox.com)', 
-                    'Content-Type': 'application/json', 
-                    'Accept': '*/*', 
-                    'Host': '121.41.167.176:20001', 
-                    'Connection': 'keep-alive'
-                },
-                data: data
             }
+            
+            axios.post('/api/auth/login', data).then(response =>{
+                console.log("login succ", response)
+                setCache('jwt', response.data.data.access_token)
+                let user_info = decodeJWT2Obj(response.data.data.access_token)
+                setCache('userInfo', user_info.payload)
+                router.push('/')
+            }).catch(error => {
+                console.log("error", error)
+            })
+
+            // let config = {
+            //     method: 'post',
+            //     //url: 'http://121.41.167.176:20001/auth/login',
+            //     url : "/api/auth/login",
+            //     headers: { 
+            //         'Content-Type': 'application/json', 
+            //         'Accept': '*/*', 
+            //     },
+            //     data: data
+            // }
             // axios(config).then(function(response) {
             //     console.log('login res', JSON.stringify(response.data))
             //     // 保存用户基本信息至localStorage
-            //     setCache('userInfo', {name: response.data.name, avatarUrl: response.data.avatar})
-            //     router.push('/')
+            //     // setCache('userInfo', {name: response.data.name, avatarUrl: response.data.avatar})
+            //     // router.push('/')
             // }).catch(function (error) {
             //     console.log(error)
             // })
-            setTimeout(()=>{
-                setCache('userInfo', {name:'Truety', avatarUrl:'https://gd-hbimg.huaban.com/dc4b46d78ad5d8f1657dc3b3dd28d7bec4a9b6c418bc9-TFXE1F_fw658webp'})
-                router.push('/')
-            }, 3000)
+            // setTimeout(()=>{
+            //     setCache('userInfo', {name:'Truety', avatarUrl:'https://gd-hbimg.huaban.com/dc4b46d78ad5d8f1657dc3b3dd28d7bec4a9b6c418bc9-TFXE1F_fw658webp'})
+            //     router.push('/')
+            // }, 3000)
         }
 
         const onFinishFailed = (errorInfo: any) => {

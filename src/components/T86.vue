@@ -1,7 +1,6 @@
 <template>
     <div class="search-equals" style="display: flex;align-items: center;margin-bottom: 16px;">
 
-        <!-- //search-input -->
         <label style="vertical-align:middle;" >MBOL:</label>
         <a-input-search 
             v-model:value="bill_search" 
@@ -10,16 +9,39 @@
             style="vertical-align:middle;margin-left:20px;width:240px" />
     </div>
     <a-table :dataSource="dataSource" :columns="columns_info" >
-        <template #bodyCell="{ column, text }">
+        <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'actions'">
-                <template v-if="text.status === 'Draft'">
-                    <a @click="checkHtsHandle(text)">Check</a>
+                <template v-if="record.status === 'Approved'">
+                    <a @click="checkHtsHandle(record)">Check</a>
                     <a-divider type="vertical"></a-divider>
-                    <a @click="sendHtsHandle(text)">Send</a>
+                    <a @click="sendHtsHandle(record)">Send</a>
+                    <a-divider type="vertical"></a-divider>
+                    <a-dropdown :trigger="['click']" :overlay-style="{background:'#0F172A'}" style="border-radius: 2px;">
+                        <a class='ant-dropdown-link' @click.prevent>
+                            DownLoad
+                        </a>
+                        <template #overlay>
+                            <a-menu>
+                                <a-menu-item key='1'>
+                                    <a href="javascript:void(0)" @click="downloadFileHandle('T86', record)">T86</a>
+                                </a-menu-item>
+                                <a-menu-item key='2'>
+                                    <a  href="javascript:void(0)" @click="downloadFileHandle('ISF', record)">ISF</a>
+                                </a-menu-item>
+                                <a-menu-item  key='3'>
+                                    <a v-if="record.transportMode==='OCEAN'" href="javascript:void(0)" @click="downloadFileHandle('AMS', record)">AMS</a>
+                                    <a v-else href="javascript:void(0)" @click="downloadFileHandle('ACAS', record)">ACAS</a>
+                                </a-menu-item>
+                                
+                            </a-menu>
+                        </template>
+                    </a-dropdown>
                 </template>
-                <template v-else-if="text.status ==='uploaded'">
-                    <a href="#" @onClick="downloadHandle">DownLoad</a>
-                </template>
+            </template>
+            <template v-else-if="column.key === 'status'" >
+                <a-badge v-if="record.status === 'Draft'" color="red" />
+                <a-badge v-else-if="record.status === 'Approved'" color="pink" />
+                {{ record.status }}
             </template>
         </template>
     </a-table>
@@ -51,8 +73,7 @@ export default defineComponent({
             
         }
 
-        const checkHtsHandle = (item : any ) => {
-            console.log("click ====", item)        
+        const checkHtsHandle = (item : any ) => {    
             router.push({
                 name: 't86info',
                 query: {
@@ -62,13 +83,31 @@ export default defineComponent({
         }
 
         const getT86Data = async( params : any = {})=> {
-            let response_data = await Api.getPending(params)
+            let response_data = await Api.getT86(params)
             dataSource.value = []
             for( let i = 0; i < response_data.rows.length; i++){
                 response_data.rows[i].index = i + 1
                 dataSource.value.push(response_data.rows[i])
             }
             console.log("datasource", dataSource.value)
+        }
+
+        const sendHtsHandle = async(item: any) =>{
+            if( item.mainId === null) {
+                return
+            }
+            console.log("send to cc", item)
+            return
+            let response = await Api.sentTOCC(item.mainId)
+            if( response.code === 200){
+                return
+            }
+        }
+
+        const downloadFileHandle = async(type: string, record : any) =>{
+            console.log("get profile", record, type)
+            let response = await Api.getClreanceProfile(record.masterBillNumber, type)
+            console.log('get file ', response)
         }
         
         onMounted(()=>{
@@ -94,6 +133,8 @@ export default defineComponent({
             checkHtsHandle,
             searchMbolHanlde,
             bill_search,
+            sendHtsHandle,
+            downloadFileHandle
         }
     },
 })

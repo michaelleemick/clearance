@@ -1,6 +1,7 @@
 <template>
     <div class="main_layout">
         <Topbar></Topbar>
+        <a-alert class="alert-tip" :message="alert_data.alert_message" :type="alert_data.alert_type" v-if="alert_data.alert_visible" show-icon />
         <div style="flex:1;background-color:#f5f5f5;padding: 24px 24px 40px 24px;">
             <div class="content-body">
                 <a-tabs v-model:activeKey="activeKey" class="tabs-a">
@@ -25,27 +26,23 @@
                                     style="width: 200px;text-align: left;margin-left:12px;"
                                     @change="handleCarrierChange"
                                 >
-                                    <a-select-option v-for="item in carriesData" :key="item.key" value="{{ item.text }}">{{ item.text }}</a-select-option>
+                                    <a-select-option v-for="item in carriesData" :key="item.key" :value="item.text">{{ item.text }}</a-select-option>
                                 </a-select>
                                 <!-- //upload-btn -->
 
                             </div>
 
                             <div class="content-table">
-                                <a-config-provider :theme="{
-                                    token:{
-                                        colorPrimary:'#000000'
-                                    }
-                                }">
+                                <a-config-provider :theme="{}">
                                 <a-table :dataSource="mbols_data" :columns="columns_info" >
-                                    <template #bodyCell="{ column, text}">
+                                    <template #bodyCell="{ column, record, index}">
                                         <template v-if="column.key === 'actions'">
                                             <span>
 
                                                 <a-popconfirm
                                                     title="Are you sure pass this task?"
                                                     cancel-text="No"
-                                                    @confirm="approveHandle(text)"
+                                                    @confirm="approveHandle(record)"
                                                     ok-text="Yes"
                                                 >   
                                                     <a href="#">Approve</a>
@@ -56,7 +53,7 @@
                                                     cancel-text="No"
                                                     ok-text="Yes"
                                                     okType="primary"
-                                                    @confirm="rejectHandle(text)"
+                                                    @confirm="rejectHandle(record)"
                                                 >
                                                     <template #description>
                                                         <a-form layout="vertical">
@@ -71,7 +68,15 @@
                                             </span>
                                         </template>
                                         <template v-else-if="column.key === 'firstLogisticsProviderName'">
-                                            
+                                            <a-select 
+                                                v-if="record.firstLogisticsProviderName === null"
+                                                :value="record.firstLogisticsProviderName" 
+                                                style="width: 120px;text-align:left;"
+                                                @change="(value)=> setItemFirstProvider(value, record, index)"
+                                            >
+                                                <a-select-option v-for="item in carrierItemData" :key="item.key" :value="item.text">{{ item.text }}</a-select-option>
+                                            </a-select>
+                                            <label v-else>{ record.firstLogisticsProviderName }</label>
                                             
                                         </template>
                                     </template>
@@ -91,13 +96,15 @@
     </div>
   </template>
   
-  <script lang="ts">
-  import { defineComponent, onMounted, reactive, ref, nextTick, watch } from 'vue'
-  import { SearchOutlined,DownOutlined } from '@ant-design/icons-vue'
-  import axios from 'axios'
-  import Topbar from '@/components/TopBar.vue'
-  import T86 from '@/components/T86.vue'
-  import Api from '@/api/Api'
+<script lang="ts">
+import { defineComponent, onMounted, reactive, ref, nextTick, watch } from 'vue'
+import { SearchOutlined,DownOutlined } from '@ant-design/icons-vue'
+import axios from 'axios'
+import Topbar from '@/components/TopBar.vue'
+import T86 from '@/components/T86.vue'
+import Api from '@/api/Api'
+import { getCache } from '@/common/storage'
+
 
   export default defineComponent({
     name: 'ClearanceView',
@@ -108,15 +115,22 @@
       T86,
     },
     setup(){
+        const alert_data = ref({
+            alert_message: "",
+            alert_type: "success",
+            alert_visible : false
+        })
+
         const pending_count = ref(0)
         const activeKey = ref('1')
         const bill_search = ref<string>("")
-        const carriesName = "All"
+        const carriesName = ref("All")
         const approveVisible = ref<boolean>(false)
         const rejectRef = ref(null)
         const carriesData: any = ref([
             {key: '1', text: 'All'},
         ])
+        const carrierItemData : any = ref([])
         
 
         const mbols_data: any = ref([])
@@ -150,19 +164,32 @@
                         carrier_data.push(response_data.rows[key].carrierCode)
                     }
                 }
-                pending_count.value = 10
-                carriesData.value = [
-                    {key: '1', text: 'All'},
-                ]
-                for(let i = 0; i < carrier_data.length; i++){
-                    carriesData.value.push({
-                        key: i+2,
-                        text: carrier_data[i]
-                    })
-                }
 
             }catch ( error){
                 console.error('axios error', error)
+            }
+        }
+
+        const getLogicProvider = async()=>{
+            let response = await Api.getfirstLogisticsProviderName()
+            let providerDatas  = response.data
+            carriesData.value = [
+                {key: '1', text: 'All'},
+            ]
+            carrierItemData.value = []
+
+            for( let key in providerDatas ){
+                let obj = { 
+                    key : providerDatas[key].dictSort + 1,
+                    text : providerDatas[key].dictValue
+                }
+
+                carriesData.value.push(obj)
+                let obj2 = {
+                    key : providerDatas[key].dictSort,
+                    text : providerDatas[key].dictValue
+                }
+                carrierItemData.value.push(obj2)
             }
         }
 
@@ -170,16 +197,16 @@
         onMounted(() =>{
             nextTick(()=>{
                 fetchBills()
+                getLogicProvider()
             })
         })
         
-
         const columns_info = [
             {title:'MBOL', dataIndex:'mbol', key:'mbol'},
             {title:'Type', dataIndex:'type', key:'type'},
             {title:'HBOL', dataIndex:'hbol', key:'hbol'},
             {title:'SKU Total', dataIndex:'sku_total', key:'sku_total'},
-            {title:'Origin Carrier', dataIndex:'firstLogisticsProviderName', key:'firstLogisticsProviderName'},
+            {title:'Origin Carrier', dataIndex:'firstLogisticsProviderName', key:'firstLogisticsProviderName', width : "200px"},
             {title:'IOR', dataIndex:'ior', key:'ior'},
             {title:'Source', dataIndex:'source', key:'source'},
             {title:'Creator', dataIndex:'creator', key:'creator'},
@@ -191,7 +218,6 @@
             console.log("reject", item)
             nextTick(()=>{
                 fetchBills()
-                //mbols_data.value = []
             })
             
         }
@@ -208,18 +234,63 @@
             fetchBills(params)
         }
 
+        const handleCarrierChange = ( value : string) =>{
+            console.log("select carrier", value)
+            carriesName.value = value
+            if( value === "All") {
+                fetchBills()
+            }else{
+                let params : any = {
+                    firstLogisticsProviderCode : value
+                }
+                if( bill_search.value != null ){
+                    params.masterBillNumber = bill_search.value
+                }
+                fetchBills(params)
+            }
+        }
+
+        const setItemFirstProvider = async(value: any, record:any, index : any) => {
+            console.log("set provider",record, value ) 
+            let data = {
+                firstLogisticsProviderName : value,
+                firstLogisticsProviderCode : value,
+            }
+            let result = await Api.updateFirstProvider(record.mainId, data)
+        }
+        
+        const approveHandle = async( item: any ) => {
+            console.log("approve ", item)
+
+            if( item.firstLogisticsProviderCode === null){
+                alert_data.value = {
+                    alert_message: "Must Select Carrier",
+                    alert_type: 'error',
+                    alert_visible : true
+                }
+                setTimeout(()=>{
+                    alert_data.value.alert_visible = false
+                }, 3000)
+            }
+        }
+
         return {
+            alert_data,
             activeKey,
             pending_count,
             bill_search,
             carriesData,
-            carriesName : carriesName,
+            carriesName,
             mbols_data,
             columns_info,
             approveVisible,
             rejectRef,
             rejectHandle,
             searchMbolHanlde,
+            handleCarrierChange,
+            setItemFirstProvider,
+            carrierItemData,
+            approveHandle,
         }
         
     },
@@ -227,25 +298,23 @@
 
     },
     methods:{
-        handleCarrierChange( value : string){
-            console.log("select carrier", value)
-            this.carriesName = value
-        },
-        async approveHandle(item: any) {
-            console.log("approve ", item, item.firstLogisticsProviderName)
-            return
-            if( item.firstLogisticsProviderName === "null"){
-
-            }
-            let url : string = "http://121.41.167.176:20001/t86/normal/" + item.mainId + "/approval_pass"
-            try{
-                let response = await(axios.put(url))
-                console.log(response)
-            }catch(error){
-                console.log("axios error", error)
-            }  
+        
+        // async approveHandle(item: any) {
+        //     console.log("approve ", item, item.firstLogisticsProviderName)
+        //     //let _url = '/api/t86/normal/' + item.mainId + '/approval_pass'
+        //     let _url = '/api/t86/normal/master/' + item.mainId + '/approval_pass'
+        //     let config = {
+        //         method : "put",
+        //         url : _url,
+        //         headers:{
+        //             'Authorization' : 'Bearer ' +  getCache('jwt')
+        //         },
+        //     }
+        //     let response = await axios(config)
+        //     console.log("=====appprove ove", response)
+        //     return
             
-        },
+        // },
     }
   });
 </script>
@@ -264,6 +333,7 @@
     font-size: 16px;
     padding: 0, 12px, 0,12px;
 }
+
 .content-body {
     height: 100%;
     background: #fff;
@@ -271,6 +341,15 @@
 }
 .earch-equals{
     display: flex;
+}
+.alert-tip {
+    position: fixed;
+    top: 60px;
+    width: 400px;
+    left : 50%;
+    border-radius: 5px;
+    margin-left : -200px;
+    line-height: 16px;
 }
 </style>
   
