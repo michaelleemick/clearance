@@ -1,7 +1,10 @@
 <template>
     <div class="main_layout">
         <Topbar></Topbar>
-        <a-alert class="alert-tip" :message="alert_data.alert_message" :type="alert_data.alert_type" v-if="alert_data.alert_visible" show-icon />
+        <a-modal v-model:open="showFrame" title="Bill Infos" class="bill-iframe" width="950px" height="500px" :footer="null" @afterClose="modalCloseHandle" :destroyOnClose="true">
+            <a-spin class="loading-spin" size="large" v-if="showLoading"/>
+            <iframe :src="iframe_url" class="iframe-class" @load="frameLoaded" ref="iframeComp"></iframe>
+        </a-modal>
         <div style="flex:1;background-color:#f5f5f5;padding: 24px 24px 40px 24px;">
             <div class="content-body">
                 <a-tabs v-model:activeKey="activeKey" class="tabs-a">
@@ -33,14 +36,13 @@
                             </div>
 
                             <div class="content-table">
-                                <a-config-provider :theme="{}">
                                 <a-table :dataSource="mbols_data" :columns="columns_info" >
                                     <template #bodyCell="{ column, record, index}">
                                         <template v-if="column.key === 'actions'">
                                             <span>
-
                                                 <a-popconfirm
                                                     title="Are you sure pass this task?"
+                                                    placement="bottom"
                                                     cancel-text="No"
                                                     @confirm="approveHandle(record)"
                                                     ok-text="Yes"
@@ -50,6 +52,7 @@
                                                 <a-divider type="vertical" />
                                                 <a-popconfirm
                                                     title="Are you sure reject this task"
+                                                    placement="bottom"
                                                     cancel-text="No"
                                                     ok-text="Yes"
                                                     okType="primary"
@@ -58,7 +61,7 @@
                                                     <template #description>
                                                         <a-form layout="vertical">
                                                             <a-form-item label="Reject reseaon:">
-                                                                <a-textarea :rows="3" ref="rejectRef" placeholder="Please enter reject reason" v-model:value="text.rejectContent"/>
+                                                                <a-textarea :rows="3" ref="rejectRef" placeholder="Please enter reject reason" v-model:value="record.rejectContent"/>
                                                             </a-form-item>
                                                         </a-form>
                                                     </template>
@@ -76,12 +79,15 @@
                                             >
                                                 <a-select-option v-for="item in carrierItemData" :key="item.key" :value="item.text">{{ item.text }}</a-select-option>
                                             </a-select>
-                                            <label v-else>{ record.firstLogisticsProviderName }</label>
+                                            <label v-else>{{ record.firstLogisticsProviderName }}</label>
                                             
+                                        </template>
+                                        <template v-else-if="column.key === 'mbol'">
+                                            <a href="javascript:void(0)" @click="showIframe(record)">{{ record.mbol }}</a><CopyOutlined  @click="copyMbolHandle(record.mbol)" style="margin-left: 8px;color: #1677ff"/>
                                         </template>
                                     </template>
                                 </a-table>
-                            </a-config-provider>
+                            
                             </div>
                         </div>
                     </a-tab-pane>
@@ -97,13 +103,13 @@
   </template>
   
 <script lang="ts">
-import { defineComponent, onMounted, reactive, ref, nextTick, watch } from 'vue'
-import { SearchOutlined,DownOutlined } from '@ant-design/icons-vue'
-import axios from 'axios'
+import { defineComponent, onMounted, ref, nextTick } from 'vue'
+import { SearchOutlined,DownOutlined, CopyOutlined } from '@ant-design/icons-vue'
 import Topbar from '@/components/TopBar.vue'
 import T86 from '@/components/T86.vue'
 import Api from '@/api/Api'
 import { getCache } from '@/common/storage'
+import { message } from 'ant-design-vue'
 
 
   export default defineComponent({
@@ -112,14 +118,15 @@ import { getCache } from '@/common/storage'
       Topbar,
       SearchOutlined,
       DownOutlined,
+      CopyOutlined,
       T86,
     },
     setup(){
-        const alert_data = ref({
-            alert_message: "",
-            alert_type: "success",
-            alert_visible : false
-        })
+        
+        const showFrame = ref(false)
+        const showLoading = ref(false)
+        const iframe_url = ref("")
+        const iframeComp = ref(null)
 
         const pending_count = ref(0)
         const activeKey = ref('1')
@@ -140,6 +147,10 @@ import { getCache } from '@/common/storage'
             
                 const response_data = await Api.getPending(params)
                 let carrier_data : string[] = [];
+                if( response_data.code != 200){
+                    message.error(response_data.msg,3)
+                    return
+                }
                 mbols_data.value  = [];
 
                 for(let key in response_data.rows){
@@ -172,6 +183,10 @@ import { getCache } from '@/common/storage'
 
         const getLogicProvider = async()=>{
             let response = await Api.getfirstLogisticsProviderName()
+            if( response.code != 200) {
+                message.error(response.msg, 3)
+                return
+            }
             let providerDatas  = response.data
             carriesData.value = [
                 {key: '1', text: 'All'},
@@ -205,7 +220,7 @@ import { getCache } from '@/common/storage'
             {title:'MBOL', dataIndex:'mbol', key:'mbol'},
             {title:'Type', dataIndex:'type', key:'type'},
             {title:'HBOL', dataIndex:'hbol', key:'hbol'},
-            {title:'SKU Total', dataIndex:'sku_total', key:'sku_total'},
+            {title:'Manifest Quantity', dataIndex:'sku_total', key:'sku_total'},
             {title:'Origin Carrier', dataIndex:'firstLogisticsProviderName', key:'firstLogisticsProviderName', width : "200px"},
             {title:'IOR', dataIndex:'ior', key:'ior'},
             {title:'Source', dataIndex:'source', key:'source'},
@@ -214,12 +229,16 @@ import { getCache } from '@/common/storage'
             {title:'Actions', key:'actions'}, 
         ]
 
-        const rejectHandle = (item : any)=>{
-            console.log("reject", item)
-            nextTick(()=>{
-                fetchBills()
-            })
-            
+        const rejectHandle = async(item : any)=>{     
+            console.log('item', item)    
+            let response = await Api.rejectBill(item.mainId, item.rejectContent)
+            if( response.code == 200){
+                message.success('Reject Succ', 1, ()=>{
+                    fetchBills()
+                })
+            }else{
+                message.error(response.msg, 1)
+            }
         }
 
         const searchMbolHanlde = () =>{
@@ -235,7 +254,7 @@ import { getCache } from '@/common/storage'
         }
 
         const handleCarrierChange = ( value : string) =>{
-            console.log("select carrier", value)
+           
             carriesName.value = value
             if( value === "All") {
                 fetchBills()
@@ -252,30 +271,67 @@ import { getCache } from '@/common/storage'
 
         const setItemFirstProvider = async(value: any, record:any, index : any) => {
             console.log("set provider",record, value ) 
-            let data = {
-                firstLogisticsProviderName : value,
-                firstLogisticsProviderCode : value,
+            record.firstLogisticsProviderName = value
+            record.firstLogisticsProviderCode = value
+            let result = await Api.updateFirstProvider( record)
+            if(result.code === 200){
+                message.success('Update Succ', 1, ()=>{
+                    fetchBills()
+                })
+            }else{
+                message.error(result.msg, 1, ()=>{
+                    fetchBills()
+                })
             }
-            let result = await Api.updateFirstProvider(record.mainId, data)
         }
         
         const approveHandle = async( item: any ) => {
             console.log("approve ", item)
 
             if( item.firstLogisticsProviderCode === null){
-                alert_data.value = {
-                    alert_message: "Must Select Carrier",
-                    alert_type: 'error',
-                    alert_visible : true
-                }
-                setTimeout(()=>{
-                    alert_data.value.alert_visible = false
-                }, 3000)
+                message.error('Must Select Carrier',3)
+                return
+            }
+            let response = await Api.approvePassBill(item.mainId)
+
+            if( response.code === 200){
+                message.success('Appreved Succ', 1, ()=>{
+                    fetchBills()
+                })
+            }else{
+                message.error(response.msg, 2)
             }
         }
+        const copyMbolHandle = async( mbol : string ) =>{
+            await navigator.clipboard.writeText(mbol);
+            message.success("Copy Succ", 2)
+        }
+        
+        const showIframe = async(record: any) =>{
+            showFrame.value = true
+            iframe_url.value = "https://api.clearance.great-way.link/api/jmreport/view/1001739101741998080?masterBillNumber=" + record.masterBillNumber
+            console.log("frame start")
+            showLoading.value = true
+        }
+
+        const frameLoaded = ()=>{
+            showLoading.value = false
+        }
+
+        const modalCloseHandle = () =>{
+            
+            if( iframeComp.value ){
+                if( iframeComp.value){
+                    console.log("clear iframe")
+                    let iframe = iframeComp.value as HTMLIFrameElement
+                    iframe.contentWindow?.document.open()
+                    iframe.contentWindow?.document.write("")
+                    iframe.contentWindow?.document.close()
+                }
+            }
+        } 
 
         return {
-            alert_data,
             activeKey,
             pending_count,
             bill_search,
@@ -291,31 +347,17 @@ import { getCache } from '@/common/storage'
             setItemFirstProvider,
             carrierItemData,
             approveHandle,
+            copyMbolHandle,
+            iframe_url,
+            showFrame,
+            showIframe,
+            frameLoaded,
+            showLoading,
+            modalCloseHandle,
         }
         
     },
-    onReady(){
-
-    },
-    methods:{
-        
-        // async approveHandle(item: any) {
-        //     console.log("approve ", item, item.firstLogisticsProviderName)
-        //     //let _url = '/api/t86/normal/' + item.mainId + '/approval_pass'
-        //     let _url = '/api/t86/normal/master/' + item.mainId + '/approval_pass'
-        //     let config = {
-        //         method : "put",
-        //         url : _url,
-        //         headers:{
-        //             'Authorization' : 'Bearer ' +  getCache('jwt')
-        //         },
-        //     }
-        //     let response = await axios(config)
-        //     console.log("=====appprove ove", response)
-        //     return
-            
-        // },
-    }
+   
   });
 </script>
 <style scoped>
@@ -342,14 +384,22 @@ import { getCache } from '@/common/storage'
 .earch-equals{
     display: flex;
 }
-.alert-tip {
+.bill-iframe{
+    width: 950px;
+    height: 500px;
+}
+.iframe-class{
+    /* position: fixed; */
+    width: 850px;
+    height: 500px;
+    overflow: auto;
+    border: 0px;
+
+}
+.loading-spin{
     position: fixed;
-    top: 60px;
-    width: 400px;
-    left : 50%;
-    border-radius: 5px;
-    margin-left : -200px;
-    line-height: 16px;
+    margin-left: 400px;
+    margin-top: 250px;
 }
 </style>
   

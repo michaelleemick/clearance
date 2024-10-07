@@ -9,9 +9,7 @@
         <div class="toolbar_layout">
             <div class="toolbar">
                 <div class="notice">
-                    <a-badge count="5" :offset="[4, -2]" :number-style="{width: '20px', height: '20px'}">
-                        <BellOutlined style="color:#fff;width:18px;font-size:18px;" />
-                    </a-badge>
+                    <BellOutlined style="color:#fff;width:18px;font-size:18px;" />
                 </div>
                 <div class="management">
                     <div class="management-icon"></div>
@@ -44,7 +42,7 @@
 
 <script lang="ts">
 import { h, defineComponent, ref } from 'vue';
-import { BellOutlined, AppstoreOutlined} from '@ant-design/icons-vue';
+import { BellOutlined, AppstoreOutlined,GlobalOutlined, ClockCircleOutlined} from '@ant-design/icons-vue';
 import { MenuProps } from 'ant-design-vue';
 import axios from 'axios';
 import { setCache, getCache } from '@/common/storage';
@@ -74,15 +72,15 @@ export default defineComponent({
         },
         {
             key: 'clearance',
-            icon: () => h(BellOutlined),
+            icon: () => h(GlobalOutlined),
             label: 'Clearance',
             title: 'Clearance',
         },
         {
-            key: 'Lifecycle',
-            icon: () => h(BellOutlined),
-            label: 'Lifecycle',
-            title: 'Lifecycle',
+            key: 'Fantracking',
+            icon: () => h(ClockCircleOutlined),
+            label: 'Fantracking',
+            title: 'Fantracking',
             disabled : true,
         },
 
@@ -168,14 +166,14 @@ export default defineComponent({
     line-height: 28px;
     margin-top: 10px;
 }
-.top-bar-menu /deep/ .ant-menu-item-selected{
+.top-bar-menu :deep(.ant-menu-item-selected){
     border-radius: 100px;
     line-height: 28px;
     padding-top: 0px;
     background: #1677ff;
     
 }
-.top-bar-menu /deep/ .ant-menu-item{
+.top-bar-menu :deep(.ant-menu-item){
     line-height: 28px;
 }
 .toolbar_layout{
@@ -232,7 +230,7 @@ export default defineComponent({
     justify-content: center;
 }
 .user-menu ul {
-    background: #0F172A;
+    background-color: #0F172A;
 }
 .user-menu li a {
     color: #fff;

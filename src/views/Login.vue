@@ -44,13 +44,9 @@
                     </a-form-item>
 
                     <a-form-item>
-                        <a-config-provider :theme="{
-                            token:{
-                                colorPrimary:'#000000'
-                            }
-                        }">
-                            <a-button type="primary" html-type="submit" class="login-form-button" block>Login</a-button>
-                        </a-config-provider>
+                       
+                        <a-button type="primary" html-type="submit" class="login-form-button" block>Login</a-button>
+                        
                         
                     </a-form-item>
                 </a-form>
@@ -61,13 +57,14 @@
 
 <script lang="ts">
 import axios from 'axios';
-import { defineComponent,reactive, computed } from 'vue'
+import { defineComponent,reactive, computed, ref } from 'vue'
 import { UserOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons-vue'
 import { setCache } from '@/common/storage'
 import { decryptWithAes } from '@/common/aes'
 import { decodeJWT2Obj } from '@/common/jwt'
-
+import { message } from 'ant-design-vue'
 import router from '@/router'
+
 
 export default defineComponent({
     name: 'Login',
@@ -85,6 +82,7 @@ export default defineComponent({
             username: '',
             password: '',
         })
+
         const onFinish = async(values: any) => {
             // let data : string = JSON.stringify({
             //     "clientId": "e5cd7e4891bf95d1d19206ce24a7b32e",
@@ -93,7 +91,6 @@ export default defineComponent({
             //     "username": formState.username,
             //     "password": formState.password,
             // })
-
             let data  = {
                 "clientId": "e5cd7e4891bf95d1d19206ce24a7b32e",
                 "grantType": "password",
@@ -102,12 +99,21 @@ export default defineComponent({
                 "password": formState.password,
             }
             
-            axios.post('/api/auth/login', data).then(response =>{
-                console.log("login succ", response)
-                setCache('jwt', response.data.data.access_token)
-                let user_info = decodeJWT2Obj(response.data.data.access_token)
-                setCache('userInfo', user_info.payload)
-                router.push('/')
+            axios.post('/auth/login', data).then(response =>{
+                let response_data = response.data
+                if( response_data.code === 200) {
+                    setCache('jwt', response_data.data.access_token)
+                    let user_info = decodeJWT2Obj(response.data.data.access_token).payload
+                    if( response_data.data.expire_in){
+                        user_info.expire_in = Date.now()  + response_data.data.expire_in
+                    }else{
+                        user_info.expire_in = Date.now() + 600000
+                    }
+                    setCache('userInfo', user_info)
+                    router.push('/')
+                }else{
+                    message.error(response_data.msg, 3)
+                }
             }).catch(error => {
                 console.log("error", error)
             })
@@ -202,6 +208,7 @@ export default defineComponent({
         }
     }
 }
+
 </style>
 <style>
 @media screen and (max-width: 1440px) {

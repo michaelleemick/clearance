@@ -1,12 +1,12 @@
 <template>
-  <a-config-provider 
+  <!-- <a-config-provider 
     :theme ="{
        token:{
          colorPrimary:'#000000'
         }
-      }">
+      }"> -->
   <router-view/>
-  </a-config-provider>
+  <!-- </a-config-provider> -->
 </template>
 
 <style lang="less">
@@ -18,5 +18,11 @@
 }
 body{
   margin: 0px;
+}
+.ant-btn-primary {
+  background-color: #000000;
+}
+.ant-btn-primary:not(:disabled):hover {
+  background-color: #000000;
 }
 </style>
