@@ -8,7 +8,9 @@
         </div>
         <div class="home-item">
             <div class="login-form-container">
+                <!-- <a-spin :spinning="loadingType"> -->
                 <div style="font-size:30px;font-weight:600;line-height:38px;margin-bottom:24px;">Log In</div>
+                <a-spin :spinning="loadingType">
                 <a-form
                     :hideRequiredMark="true"
                     :model="formState"
@@ -23,7 +25,7 @@
                     name="username"
                     :rules="[{ required: true, message: 'Please input your username!', trigger: 'blur' }]"
                     >
-                    <a-input v-model:value="formState.username">
+                    <a-input size="large" v-model:value="formState.username">
                         <template #suffix>
                         <UserOutlined class="site-form-item-icon" />
                         </template>
@@ -35,7 +37,7 @@
                     name="password"
                     :rules="[{ required: true, message: 'Please input your password!', trigger: 'blur' }]"
                     >
-                    <a-input-password v-model:value="formState.password">
+                    <a-input-password size="large" v-model:value="formState.password">
                         <template #iconRender="v">
                         <UnlockOutlined class="site-form-item-icon" style="color:rgba(0,0,0,0.88);" v-if="v"/>
                         <LockOutlined class="site-form-item-icon" style="color:rgba(0,0,0,0.88);" v-else/>
@@ -50,6 +52,7 @@
                         
                     </a-form-item>
                 </a-form>
+                </a-spin>
             </div>
         </div>
     </div>
@@ -57,13 +60,13 @@
 
 <script lang="ts">
 import axios from 'axios';
-import { defineComponent,reactive, computed, ref } from 'vue'
-import { UserOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons-vue'
+import { defineComponent,reactive, ref } from 'vue'
+import { UserOutlined, LockOutlined, UnlockOutlined, CodeSandboxCircleFilled } from '@ant-design/icons-vue'
 import { setCache } from '@/common/storage'
-import { decryptWithAes } from '@/common/aes'
 import { decodeJWT2Obj } from '@/common/jwt'
 import { message } from 'ant-design-vue'
 import router from '@/router'
+import Api from '@/api/Api';
 
 
 export default defineComponent({
@@ -82,15 +85,10 @@ export default defineComponent({
             username: '',
             password: '',
         })
+       
+        const loadingType = ref(false)
 
         const onFinish = async(values: any) => {
-            // let data : string = JSON.stringify({
-            //     "clientId": "e5cd7e4891bf95d1d19206ce24a7b32e",
-            //     "grantType": "password",
-            //     "tenantId": "000000",
-            //     "username": formState.username,
-            //     "password": formState.password,
-            // })
             let data  = {
                 "clientId": "e5cd7e4891bf95d1d19206ce24a7b32e",
                 "grantType": "password",
@@ -98,48 +96,39 @@ export default defineComponent({
                 "username": formState.username,
                 "password": formState.password,
             }
+            loadingType.value = true
             
-            axios.post('/auth/login', data).then(response =>{
+            axios.post('/api/auth/login', data).then(response =>{
+                
                 let response_data = response.data
                 if( response_data.code === 200) {
                     setCache('jwt', response_data.data.access_token)
-                    let user_info = decodeJWT2Obj(response.data.data.access_token).payload
-                    if( response_data.data.expire_in){
-                        user_info.expire_in = Date.now()  + response_data.data.expire_in
-                    }else{
-                        user_info.expire_in = Date.now() + 600000
-                    }
-                    setCache('userInfo', user_info)
+                    
+                    getUserInfo()
                     router.push('/')
                 }else{
+                    loadingType.value = false
                     message.error(response_data.msg, 3)
                 }
             }).catch(error => {
+
                 console.log("error", error)
             })
 
-            // let config = {
-            //     method: 'post',
-            //     //url: 'http://121.41.167.176:20001/auth/login',
-            //     url : "/api/auth/login",
-            //     headers: { 
-            //         'Content-Type': 'application/json', 
-            //         'Accept': '*/*', 
-            //     },
-            //     data: data
-            // }
-            // axios(config).then(function(response) {
-            //     console.log('login res', JSON.stringify(response.data))
-            //     // 保存用户基本信息至localStorage
-            //     // setCache('userInfo', {name: response.data.name, avatarUrl: response.data.avatar})
-            //     // router.push('/')
-            // }).catch(function (error) {
-            //     console.log(error)
-            // })
-            // setTimeout(()=>{
-            //     setCache('userInfo', {name:'Truety', avatarUrl:'https://gd-hbimg.huaban.com/dc4b46d78ad5d8f1657dc3b3dd28d7bec4a9b6c418bc9-TFXE1F_fw658webp'})
-            //     router.push('/')
-            // }, 3000)
+            const getUserInfo = async() =>{
+                let response_data = await Api.getUserInfo()
+                loadingType.value = false
+                if( response_data.code !==200){
+                    setCache('jwt', "")
+                    message.error(response_data.msg,3)
+                    router.push('/')
+                }
+                console.log("get user data", response_data)
+
+                let userInfo = response_data.data.user
+                setCache("userInfo", userInfo)
+                router.push('/')
+            }
         }
 
         const onFinishFailed = (errorInfo: any) => {
@@ -149,6 +138,7 @@ export default defineComponent({
             formState,
             onFinish,
             onFinishFailed,
+            loadingType,
         }
     }
 });

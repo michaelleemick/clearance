@@ -1,6 +1,7 @@
 <template>
+    <a-spin :spinning="loadingType">
     <div class="main_layout">
-        <Topbar></Topbar>
+        <Topbar @custom-event="show_loading"></Topbar>
         <a-modal v-model:open="showFrame" title="Bill Infos" class="bill-iframe" width="950px" height="500px" :footer="null" @afterClose="modalCloseHandle" :destroyOnClose="true">
             <a-spin class="loading-spin" size="large" v-if="showLoading"/>
             <iframe :src="iframe_url" class="iframe-class" @load="frameLoaded" ref="iframeComp"></iframe>
@@ -10,6 +11,7 @@
                 <a-tabs v-model:activeKey="activeKey" class="tabs-a">
                     <a-tab-pane key="1" tab="Pending">
                         <div class="pending_content" style="margin-top:8px;">
+                            
                             <div class="search-equals" style="display: flex;align-items: center;margin-bottom: 16px;">
 
                                 <!-- //search-input -->
@@ -36,7 +38,7 @@
                             </div>
 
                             <div class="content-table">
-                                <a-table :dataSource="mbols_data" :columns="columns_info" >
+                                <a-table :dataSource="mbols_data" :columns="columns_info" :pagination="pageData" @change="tableChangeHandle" >
                                     <template #bodyCell="{ column, record, index}">
                                         <template v-if="column.key === 'actions'">
                                             <span>
@@ -87,19 +89,19 @@
                                         </template>
                                     </template>
                                 </a-table>
-                            
                             </div>
                         </div>
                     </a-tab-pane>
 
                     <a-tab-pane key="2" tab="T86">
-                        <T86></T86>
+                        <T86 @custom-event="show_loading"></T86>
                     </a-tab-pane>
                     <a-tab-pane key="3" tab="Reject" disabled>Reject</a-tab-pane>
                 </a-tabs>
             </div>
         </div>
     </div>
+    </a-spin>
   </template>
   
 <script lang="ts">
@@ -125,6 +127,7 @@ import { message } from 'ant-design-vue'
         
         const showFrame = ref(false)
         const showLoading = ref(false)
+        const loadingType = ref(false)
         const iframe_url = ref("")
         const iframeComp = ref(null)
 
@@ -138,20 +141,44 @@ import { message } from 'ant-design-vue'
             {key: '1', text: 'All'},
         ])
         const carrierItemData : any = ref([])
+
+        const pageData = ref({
+            current : 1,
+            pageSize : 10,
+            total: 0,
+            showSizeChanger: true,
+            showQuickJumper: true
+        })
         
 
         const mbols_data: any = ref([])
 
         const fetchBills = async(params: any = {}) =>{
+            loadingType.value = true
             try {
-            
+                if(pageData.value ){
+                    params.pageSize = pageData.value.pageSize
+                    params.pageNum = pageData.value.current
+                }
+                if( carriesName.value != "All"){
+                    params.firstLogisticsProviderCode = carriesName.value
+                }
+
+                if( bill_search.value != null) {
+                    params.masterBillNumber = bill_search.value
+                }
+                
                 const response_data = await Api.getPending(params)
                 let carrier_data : string[] = [];
+                loadingType.value = false
                 if( response_data.code != 200){
                     message.error(response_data.msg,3)
                     return
                 }
                 mbols_data.value  = [];
+                if( response_data.total > 0) {
+                    pageData.value.total = response_data.total
+                }
 
                 for(let key in response_data.rows){
                     response_data.rows[key].mbol = response_data.rows[key].masterBillNumber
@@ -257,6 +284,7 @@ import { message } from 'ant-design-vue'
            
             carriesName.value = value
             if( value === "All") {
+              
                 fetchBills()
             }else{
                 let params : any = {
@@ -282,6 +310,18 @@ import { message } from 'ant-design-vue'
                 message.error(result.msg, 1, ()=>{
                     fetchBills()
                 })
+            }
+        }
+
+        const tableChangeHandle = async(pagination : any) =>{
+            console.log("table change ")
+            if( pageData.value.current == pagination.current && pageData.value.pageSize == pagination.pageSize){
+                return
+            }else{
+                
+                pageData.value.current = pagination.current
+                pageData.value.pageSize = pagination.pageSize
+                fetchBills()
             }
         }
         
@@ -329,7 +369,10 @@ import { message } from 'ant-design-vue'
                     iframe.contentWindow?.document.close()
                 }
             }
-        } 
+        }
+        const show_loading = (b : boolean = false) =>{
+            loadingType.value = b
+        }
 
         return {
             activeKey,
@@ -354,6 +397,10 @@ import { message } from 'ant-design-vue'
             frameLoaded,
             showLoading,
             modalCloseHandle,
+            loadingType,
+            pageData,
+            tableChangeHandle,
+            show_loading,
         }
         
     },

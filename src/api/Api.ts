@@ -5,24 +5,22 @@ import router from "@/router"
 
 //const baseUrl : string = "http://121.41.167.176:20001"
 
-const baseUrl : string = ''
-if( process.env?.VUE_APP_BASE_URL){
-    axios.defaults.baseURL = process.env?.VUE_APP_BASE_URL
-}
+const baseUrl : string = '/api'
 
 axios.interceptors.request.use(
     (config) => {
         let jwt = getCache('jwt')
-        let userInfo = getCache('userInfo')
+        //let userInfo = getCache('userInfo')
 
 
         if( jwt ){
             config.headers.Authorization = "Bearer " + jwt
+            config.headers.clientid = 'e5cd7e4891bf95d1d19206ce24a7b32e'
         }
 
-        if( userInfo && userInfo.clientid ){
-            config.headers.clientid = userInfo.clientid
-        }
+        // if( userInfo && userInfo.clientid ){
+        //     config.headers.clientid = userInfo.clientid
+        // }
         return config
 
     }
@@ -51,9 +49,15 @@ const getPending = async( params: any = {}) =>{
         }
 
         if( params.pageSize ){
-            url = url + '&PageSize=' + params.pageSize
+            url = url + '&pageSize=' + params.pageSize
         }else{
-            url = url +  '&PageSize=10'
+            url = url +  '&pageSize=10'
+        }
+
+        if( params.pageNum ){
+            url = url + '&pageNum=' + params.pageNum
+        }else{
+            url = url + '&pageNum=1' 
         }
 
         if( params.firstLogisticsProviderCode ){
@@ -76,28 +80,8 @@ const getPending = async( params: any = {}) =>{
     return response_data
 }
 
-const login = async( params: any = {}) =>{
-    
-    let url = baseUrl + "/t86/normal/master/pagination?eqStatus=Draft"
-
-    if( params ){
-        if( params.masterBillNumber ){
-            url = url + '&masterBillNumber=' + params.masterBillNumber
-        }
-
-        if( params.pageSize ){
-            url = url + '&PageSize=' + params.pageSize
-        }else{
-            url = url +  '&PageSize=10'
-        }
-        
-        if( params.firstLogisticsProviderCode ){
-            url = url + '&firstLogisticsProviderCode=' + params.firstLogisticsProviderCode
-        }
-    }
-
-    url = url + "&time=" + Date.now()
-
+const getUserInfo = async() => {
+    let url = baseUrl + "/system/user/getInfo"
     let config = {
         method : 'get',
         url : url,
@@ -105,28 +89,26 @@ const login = async( params: any = {}) =>{
             'Accept': '*/*', 
         },
     }
-
     const { data: response_data }  = await axios(config)
-    
     return response_data
-}
 
+}
 const getT86 = async( params : any = {}) =>{
     let url = baseUrl + "/t86/normal/master/pagination?neStatus=Draft"
-    console.log('lasdlflsda', params)
+    //console.log('lasdlflsda', params)
     if( params ){
         if( params.masterBillNumber ){
             url = url + '&masterBillNumber=' + params.masterBillNumber
         }
 
         if( params.pageSize ){
-            url = url + '&PageSize=' + params.pageSize
+            url = url + '&pageSize=' + params.pageSize
         }else{
-            url = url +  '&PageSize=10'
+            url = url +  '&pageSize=10'
         }
 
         if( params.pageNum ){
-            url = url + '&pageNum=' + params.pageSize
+            url = url + '&pageNum=' + params.pageNum
         }else{
             url = url + '&pageNum=1'
         }
@@ -140,7 +122,7 @@ const getT86 = async( params : any = {}) =>{
         },
     }
     const { data: response_data }  = await axios(config)
-    console.log(url, response_data)
+    //console.log(url, response_data)
     return response_data
 }
 
@@ -314,5 +296,6 @@ export default {
     sentTOCC,
     getClreanceProfile,
     getHtsRecommond,
-    rejectBill
+    rejectBill,
+    getUserInfo,
 }

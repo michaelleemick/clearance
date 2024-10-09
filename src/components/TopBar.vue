@@ -41,7 +41,7 @@
 </template>
 
 <script lang="ts">
-import { h, defineComponent, ref } from 'vue';
+import { h, defineComponent, ref , defineEmits} from 'vue';
 import { BellOutlined, AppstoreOutlined,GlobalOutlined, ClockCircleOutlined} from '@ant-design/icons-vue';
 import { MenuProps } from 'ant-design-vue';
 import axios from 'axios';
@@ -59,9 +59,10 @@ export default defineComponent({
         console.log('click over', item);
     }
   },
-  setup(){
+  setup(props, { emit }){
     const current = ref<string[]>(['clearance'])
-    const notice_count = 10
+    const isLoading = ref(false)
+    
     const items = ref<MenuProps['items']>([
         {
             key: 'dashboard',
@@ -101,35 +102,34 @@ export default defineComponent({
         //userInfo.value.avatarUrl = userCacheInfo.avatarUrl
         userInfo.value.avatarUrl = "https://gd-hbimg.huaban.com/dc4b46d78ad5d8f1657dc3b3dd28d7bec4a9b6c418bc9-TFXE1F_fw658webp"
     }
+
     const logOut = async()=> {
         console.log('logOut')
+       
         let config = {
         method: 'post',
         url: '/api/auth/logout',
-        headers: { 
-            
-            'Accept': '*/*', 
-            'Authorization' : 'Bearer ' + getCache('jwt'),
-            'clientid' : userCacheInfo.clientid
         }
-        };
+        emit('custom-event', true)
         axios(config).then(function (response) {
-            console.log(JSON.stringify(response.data))
-            // 登出成功后需置空userInfo
+            emit('custom-event', false)
+            // console.log(JSON.stringify(response.data))
+            // // 登出成功后需置空userInfo
             setCache('userInfo', '')
             setCache('jwt', '')
             router.push({path: '/login'})
         }).catch(function (error) {
+            emit('custom-event', false)
             console.log(error)
         })
-        // setCache('userInfo', '')
-        // router.push({path: '/login'})
+        
     }
     return {
         current: current,
         items: items,
         userInfo,
         logOut,
+        isLoading,
     }
     
   }

@@ -1,4 +1,5 @@
 <template>
+    <a-spin :spinning="loadingType">
     <div class="search-equals" style="display: flex;align-items: center;margin-top: 8px;">
 
         <label style="vertical-align:middle;" >MBOL:</label>
@@ -8,7 +9,8 @@
             @search="searchMbolHanlde"  
             style="vertical-align:middle;margin-left:20px;width:240px" />
     </div>
-    <a-table :dataSource="dataSource" :columns="columns_info" style="margin-top: 8px;">
+    
+    <a-table :dataSource="dataSource" :columns="columns_info" style="margin-top: 8px;" :pagination="pageData" @change="tableChangeHandle">
         <template #bodyCell="{ column, record }">
             <template v-if="column.key === 'actions'">
                 <template v-if="record.status === 'Approved'">
@@ -43,12 +45,14 @@
             <template v-else-if="column.key === 'status'" >
                 <a-tag v-if="record.status === 'Draft'" color="red">{{ record.status }}</a-tag>
                 <a-tag v-else-if="record.status === 'Approved'" color="green">{{ record.status }}</a-tag>
+                <a-tag v-else color="green">{{ record.status }}</a-tag>
             </template>
             <template v-else-if="column.key === 'masterBillNumber' ">
                 {{ record.masterBillNumber }}<CopyOutlined  @click="copyMbolHandle(record.masterBillNumber)" style="margin-left: 8px;color: #1677ff"/>
             </template>
         </template>
     </a-table>
+    </a-spin>
     
 </template>
 <script lang="ts">
@@ -65,9 +69,21 @@ export default defineComponent({
         CopyOutlined,
     },
    
-    setup() {
+    setup(props, { emit }) {
+
+        const loadingType = ref(false)
+
         const dataSource : any = ref([])
         const bill_search = ref('')
+
+        const pageData = ref({
+            current : 1,
+            pageSize : 10,
+            total: 0,
+            showSizeChanger: true,
+            showQuickJumper: true
+        })
+
         const searchMbolHanlde = () =>{
             
             if( bill_search.value === null){
@@ -91,12 +107,28 @@ export default defineComponent({
         }
 
         const getT86Data = async( params : any = {})=> {
+            //loadingType.value = true
+            emit('custom-event', true)
+            if( bill_search.value != null ){
+                params.masterBillNumber = bill_search.value
+            }
+
+            if( pageData.value ){
+                params.pageSize = pageData.value.pageSize
+                params.pageNum = pageData.value.current
+            }
+
             let response_data = await Api.getT86(params)
+            //loadingType.value = false
+            emit('custom-event', false)
             if( response_data.code != 200) {
                 message.error(response_data.msg)
                 return 
             }
             dataSource.value = []
+            if( response_data.total  > 0 ){
+                pageData.value.total = response_data.total
+            }
             for( let i = 0; i < response_data.rows.length; i++){
                 response_data.rows[i].index = i + 1
                 dataSource.value.push(response_data.rows[i])
@@ -121,7 +153,7 @@ export default defineComponent({
 
         const downloadFileHandle = async(type: string, record : any) =>{
             console.log("get profile", record, type)
-            let loading = message.loading('Apply For Serve',10)
+            let loading = message.loading('Apply For Serve',100)
             
             let result = await Api.getClreanceProfile(record.masterBillNumber, type)
             if( result == "Download Succ"){
@@ -137,6 +169,18 @@ export default defineComponent({
         const copyMbolHandle = async( mbol : string ) =>{
             await navigator.clipboard.writeText(mbol);
             message.success("Copy Succ", 2)
+        }
+
+        const tableChangeHandle = async(pagination : any) =>{
+            //console.log("table change ")
+            if( pageData.value.current == pagination.current && pageData.value.pageSize == pagination.pageSize){
+                return
+            }else{
+                
+                pageData.value.current = pagination.current
+                pageData.value.pageSize = pagination.pageSize
+                getT86Data()
+            }
         }
         
         onMounted(()=>{
@@ -164,7 +208,10 @@ export default defineComponent({
             bill_search,
             sendHtsHandle,
             downloadFileHandle,
-            copyMbolHandle
+            copyMbolHandle,
+            loadingType,
+            pageData,
+            tableChangeHandle,
         }
     },
 })
